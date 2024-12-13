@@ -4,7 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gerar Fichas Associativas</title>
-    <script src="https://cdn.tailwindcss.com" async></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @keyframes pulse-background {
+        0%,
+        100% {
+          background-color: #2563eb; /* Azul principal */
+        }
+        50% {
+          background-color: #1e40af; /* Azul escuro */
+        }
+      }
+    </style>
   </head>
   <body
     class="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 min-h-screen flex items-center justify-center"
@@ -22,7 +33,13 @@
       <h2 class="text-2xl font-bold text-gray-700 text-center mb-6">
         Gerar Fichas Associativas
       </h2>
-      <form id="uploadForm" class="space-y-6">
+      <form
+        id="uploadForm"
+        action="/upload"
+        method="post"
+        enctype="multipart/form-data"
+        class="space-y-6"
+      >
         <!-- Upload da Planilha -->
         <div>
           <label
@@ -36,7 +53,6 @@
             id="planilha"
             accept=".xlsx"
             class="block w-full text-sm text-gray-700 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-transform transform hover:scale-105"
-            aria-describedby="planilhaError"
           />
           <p id="planilhaError" class="text-sm text-red-600 mt-1"></p>
         </div>
@@ -54,13 +70,12 @@
             id="modelo"
             accept=".docx"
             class="block w-full text-sm text-gray-700 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-transform transform hover:scale-105"
-            aria-describedby="modeloError"
           />
           <p id="modeloError" class="text-sm text-red-600 mt-1"></p>
         </div>
 
         <!-- Botão de Submit -->
-        <div class="relative">
+        <div>
           <button
             type="submit"
             id="submitButton"
@@ -69,48 +84,6 @@
           >
             Gerar Fichas
           </button>
-
-          <!-- Spinner de carregamento -->
-          <div
-            id="spinner"
-            class="absolute inset-0 flex items-center justify-center bg-gray-500 bg-opacity-50 rounded-md hidden"
-          >
-            <svg
-              class="w-10 h-10 text-white animate-spin"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              ></circle>
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 0116 0A8 8 0 014 12z"
-              ></path>
-            </svg>
-          </div>
-
-          <!-- Barra de progresso -->
-          <div id="progressContainer" class="hidden mt-4">
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
-              <div
-                id="progressBar"
-                class="bg-blue-600 h-2.5 rounded-full"
-                style="width: 0%"
-              ></div>
-            </div>
-            <p id="progressText" class="text-sm text-gray-600 mt-2 text-center">
-              0%
-            </p>
-          </div>
         </div>
       </form>
     </div>
@@ -121,17 +94,15 @@
       const submitButton = document.getElementById("submitButton");
       const planilhaError = document.getElementById("planilhaError");
       const modeloError = document.getElementById("modeloError");
-      const spinner = document.getElementById("spinner");
-      const progressContainer = document.getElementById("progressContainer");
-      const progressBar = document.getElementById("progressBar");
-      const progressText = document.getElementById("progressText");
 
       function validateForm() {
         let isValid = true;
+
+        // Reset error messages
         planilhaError.textContent = "";
         modeloError.textContent = "";
 
-        // Validação da planilha
+        // Validate planilha
         if (!planilhaInput.files[0]) {
           planilhaError.textContent = "Por favor, envie a planilha.";
           isValid = false;
@@ -140,7 +111,7 @@
           isValid = false;
         }
 
-        // Validação do modelo
+        // Validate modelo
         if (!modeloInput.files[0]) {
           modeloError.textContent = "Por favor, envie o modelo.";
           isValid = false;
@@ -149,77 +120,25 @@
           isValid = false;
         }
 
-        // Habilitar/desabilitar o botão de envio
+        // Enable/Disable submit button
         submitButton.disabled = !isValid;
 
         return isValid;
       }
 
-      // Adicionar listeners para validação
+      // Add event listeners
       planilhaInput.addEventListener("change", validateForm);
       modeloInput.addEventListener("change", validateForm);
 
-      // Função para mostrar e esconder o spinner
-      function toggleSpinner(show) {
-        if (show) {
-          spinner.classList.remove("hidden");
-        } else {
-          spinner.classList.add("hidden");
-        }
-      }
-
-      // Função para mostrar e atualizar a barra de progresso
-      function updateProgressBar(percentage) {
-        progressContainer.classList.remove("hidden");
-        progressBar.style.width = percentage + "%";
-        progressText.textContent = `${percentage}%`;
-      }
-
-      // Função para enviar o formulário com XMLHttpRequest
-      function sendFormWithProgress() {
-        const formData = new FormData(document.getElementById("uploadForm"));
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/upload", true);
-
-        // Atualizar barra de progresso durante o upload
-        xhr.upload.addEventListener("progress", function (event) {
-          if (event.lengthComputable) {
-            const percentage = (event.loaded / event.total) * 100;
-            updateProgressBar(percentage);
-          }
-        });
-
-        // Quando o upload terminar
-        xhr.onload = function () {
-          if (xhr.status === 200) {
-            alert("Arquivos enviados com sucesso!");
-            updateProgressBar(100); // Garantir que a barra chegue a 100%
-            setTimeout(() => {
-              progressContainer.classList.add("hidden");
-            }, 1000);
-          } else {
-            alert("Erro no envio dos arquivos.");
-          }
-          toggleSpinner(false); // Esconder o spinner após o envio
-        };
-
-        // Enviar os dados
-        xhr.send(formData);
-      }
-
-      // Adicionar evento de submit no formulário
+      // Validate before submitting the form
       document
         .getElementById("uploadForm")
         .addEventListener("submit", function (event) {
-          event.preventDefault(); // Impedir o envio normal do formulário
-
           if (!validateForm()) {
-            return; // Impedir o envio se a validação falhar
+            event.preventDefault(); // Prevent form submission if validation fails
           }
-
-          toggleSpinner(true); // Mostrar o spinner
-          sendFormWithProgress(); // Enviar o formulário com o XMLHttpRequest
         });
     </script>
+    <script src="//code.jivosite.com/widget/zmN3fkXqLT" async></script>
   </body>
 </html>
