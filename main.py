@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 import zipfile
 import logging
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor
 
 # Configuração do Flask e diretórios
 app = Flask(__name__)
@@ -20,9 +20,6 @@ logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
-
-# Definir número máximo de workers
-MAX_WORKERS = 4  # Limitar para evitar sobrecarga do servidor
 
 
 @app.route("/")
@@ -45,7 +42,7 @@ def upload_files():
         planilha_path = salvar_arquivo(planilha, "Clientes.xlsx")
         modelo_path = salvar_arquivo(modelo, "modelo.docx")
 
-        # Processar arquivos em paralelo
+        # Processar arquivos
         processar_planilha_parallel(planilha_path, modelo_path)
         logging.info("Fichas geradas com sucesso.")
 
@@ -82,7 +79,8 @@ def processar_planilha_parallel(planilha_path, modelo_path):
     clientes = pd.read_excel(planilha_path)
     data_atual = datetime.now().strftime("%d/%m/%Y")
 
-    with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    # ProcessPoolExecutor para paralelizar a geração de fichas
+    with ProcessPoolExecutor() as executor:
         futures = []
         for _, cliente in clientes.iterrows():
             futures.append(
@@ -91,7 +89,8 @@ def processar_planilha_parallel(planilha_path, modelo_path):
                 )
             )
 
-        for future in as_completed(futures):
+        # Monitorar resultados
+        for future in futures:
             try:
                 future.result()  # Levanta exceções, se houver
             except Exception as e:
@@ -107,7 +106,7 @@ def gerar_ficha_cliente(cliente, modelo_path, data_atual):
         for paragraph in ficha.paragraphs:
             substituir_placeholders(paragraph, cliente, data_atual)
 
-        # Salvar a ficha gerada em memória ou no disco
+        # Salvar a ficha gerada
         nome_arquivo = (
             f"Ficha_{cliente.get('Nome', 'Desconhecido').replace(' ', '_')}.docx"
         )
@@ -139,7 +138,7 @@ def substituir_placeholders(paragraph, cliente, data_atual):
 def criar_arquivo_zip():
     """Cria um arquivo ZIP contendo todas as fichas geradas."""
     zip_path = os.path.join(OUTPUT_FOLDER, "fichas.zip")
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+    with zipfile.ZipFile(zip_path, "w") as zipf:
         for root, _, files in os.walk(OUTPUT_FOLDER):
             for file in files:
                 if file != "fichas.zip":  # Evitar incluir o próprio ZIP no arquivo ZIP
@@ -149,4 +148,4 @@ def criar_arquivo_zip():
 
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=True)
